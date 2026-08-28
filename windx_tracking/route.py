@@ -27,6 +27,11 @@ class Station:
     gln: str = ""
     # UN/LOCODE fuer die EDI-LOC-Segmente.
     un_locode: str = ""
+    # Basis-URL des AAS-Servers, der fuer diese Location/Station zustaendig
+    # ist (Default; kann pro Lauf ueber AasServerRegistry ueberschrieben
+    # werden, siehe windx_tracking/aas/server.py). Jede Station kann ihren
+    # eigenen, unabhaengigen AAS-Server haben.
+    aas_server_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,6 +74,7 @@ FACTORY = Station(
     station_type="FACTORY",
     gln="4012345.00001",
     un_locode="DEXFA",
+    aas_server_url="http://localhost:8081",
 )
 CHECKPOINT = Station(
     code="STA-CHECKPOINT",
@@ -76,6 +82,7 @@ CHECKPOINT = Station(
     station_type="CHECKPOINT",
     gln="4012345.00002",
     un_locode="DEXCK",
+    aas_server_url="http://localhost:8082",
 )
 HUB = Station(
     code="STA-HUB",
@@ -83,6 +90,7 @@ HUB = Station(
     station_type="HUB",
     gln="4012345.00003",
     un_locode="DEXHB",
+    aas_server_url="http://localhost:8083",
 )
 PORT_GATE = Station(
     code="STA-PORT-GATE",
@@ -90,6 +98,7 @@ PORT_GATE = Station(
     station_type="PORT_GATE",
     gln="4012345.00004",
     un_locode="DECUX",
+    aas_server_url="http://localhost:8084",
 )
 PORT_YARD = Station(
     code="STA-PORT-YARD",
@@ -97,6 +106,12 @@ PORT_YARD = Station(
     station_type="PORT_YARD",
     gln="4012345.00005",
     un_locode="DECUX",
+    # Gleicher Standort (Hafen Cuxhaven) wie PORT_GATE, hier bewusst mit
+    # eigenem AAS-Server modelliert, um zu zeigen, dass auch Teilbereiche
+    # eines Standorts unabhaengige Server betreiben koennen. In der
+    # Praxis kann hier auch dieselbe URL wie bei PORT_GATE eingetragen
+    # werden.
+    aas_server_url="http://localhost:8085",
 )
 
 DEFAULT_ROUTE = Route(

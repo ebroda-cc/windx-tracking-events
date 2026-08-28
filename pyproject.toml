@@ -3,7 +3,10 @@ name = "windx-tracking-events"
 version = "0.1.0"
 description = "Ereignisdiskrete Simulation des Rotorblatt-Transports vom Produzenten zum Hafen, mit EDI- und EPCIS-Tracking-Events"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "basyx-python-sdk>=2.1.0",
+    "requests>=2.31",
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]

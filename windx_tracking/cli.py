@@ -6,6 +6,14 @@ Beispiele:
 
     python -m windx_tracking --transports 3
     python -m windx_tracking --transports 5 --interval-minutes 240 --output-dir out
+
+    # AAS-Objekte (Shell je Sendung + Submodel je Event) zusaetzlich lokal
+    # als JSON ablegen, ohne einen AAS-Server anzusprechen:
+    python -m windx_tracking --transports 2 --aas-output-dir out/aas
+
+    # ... oder direkt auf die (je Location konfigurierten) AAS-Server hochladen:
+    python -m windx_tracking --transports 2 --upload-aas \\
+        --aas-server-config aas-servers.json
 """
 
 from __future__ import annotations
@@ -16,6 +24,8 @@ import random
 from datetime import datetime
 from pathlib import Path
 
+from .aas.pipeline import export_events_as_aas, upload_events_as_aas
+from .aas.server import AasServerRegistry
 from .des import Simulation
 from .formatters.edi import event_to_edifact
 from .formatters.epcis import event_to_epcis, events_to_epcis_document
@@ -94,6 +104,27 @@ def main() -> None:
         default=None,
         help="Wenn gesetzt: EDI- und EPCIS-Dateien je Event in diesem Verzeichnis ablegen",
     )
+    parser.add_argument(
+        "--aas-output-dir",
+        type=str,
+        default=None,
+        help="Wenn gesetzt: AAS-Shell-/Submodel-JSON je Event lokal in diesem Verzeichnis ablegen",
+    )
+    parser.add_argument(
+        "--upload-aas",
+        action="store_true",
+        help="AAS-Shells/-Submodels zusaetzlich auf die je Station zustaendigen AAS-Server hochladen",
+    )
+    parser.add_argument(
+        "--aas-server-config",
+        type=str,
+        default=None,
+        help=(
+            "JSON-Datei mit Station-Code -> AAS-Server-URL (ueberschreibt "
+            "Station.aas_server_url je Location), z.B. "
+            '\'{"STA-FACTORY": "https://factory.example.com/aas"}\''
+        ),
+    )
     args = parser.parse_args()
 
     start_time = datetime.fromisoformat(args.start) if args.start else datetime.now()
@@ -105,6 +136,20 @@ def main() -> None:
         output_dir = Path(args.output_dir)
         write_outputs(events, output_dir)
         print(f"EDI- und EPCIS-Dateien geschrieben nach: {output_dir.resolve()}")
+
+    if args.aas_output_dir:
+        aas_output_dir = Path(args.aas_output_dir)
+        export_events_as_aas(events, aas_output_dir)
+        print(f"AAS-Shell-/Submodel-JSON geschrieben nach: {aas_output_dir.resolve()}")
+
+    if args.upload_aas:
+        registry = (
+            AasServerRegistry.from_json_file(args.aas_server_config)
+            if args.aas_server_config
+            else AasServerRegistry()
+        )
+        upload_events_as_aas(events, registry)
+        print(f"{len(events)} Events als AAS auf die konfigurierten Server hochgeladen.")
 
 
 if __name__ == "__main__":
