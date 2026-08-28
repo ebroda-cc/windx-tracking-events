@@ -14,6 +14,11 @@ Beispiele:
     # ... oder direkt auf die (je Location konfigurierten) AAS-Server hochladen:
     python -m windx_tracking --transports 2 --upload-aas \\
         --aas-server-config aas-servers.json
+
+    # ... und die dort liegenden Sendungs-AAS zusaetzlich als Dataspace-Assets
+    # ueber die je Location zustaendigen EDC-Connectoren anbieten:
+    python -m windx_tracking --transports 2 --upload-aas --offer-edc-assets \\
+        --aas-server-config aas-servers.json --edc-connector-config edc-connectors.json
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ from pathlib import Path
 from .aas.pipeline import export_events_as_aas, upload_events_as_aas
 from .aas.server import AasServerRegistry
 from .des import Simulation
+from .edc.pipeline import export_events_as_dataspace_assets, offer_events_as_dataspace_assets
+from .edc.server import EdcConnectorRegistry
 from .formatters.edi import event_to_edifact
 from .formatters.epcis import event_to_epcis, events_to_epcis_document
 from .models import Shipment, TrackingEvent
@@ -125,6 +132,33 @@ def main() -> None:
             '\'{"STA-FACTORY": "https://factory.example.com/aas"}\''
         ),
     )
+    parser.add_argument(
+        "--edc-output-dir",
+        type=str,
+        default=None,
+        help=(
+            "Wenn gesetzt: Asset-/Policy-/Contract-Definition-JSON je Location+Sendung "
+            "lokal in diesem Verzeichnis ablegen (ohne EDC-Connector anzusprechen)"
+        ),
+    )
+    parser.add_argument(
+        "--offer-edc-assets",
+        action="store_true",
+        help=(
+            "Fuer jede Sendung an jeder durchlaufenen Location ein Dataspace-Asset "
+            "(inkl. Policy- und Contract-Definition) im dortigen EDC-Connector anlegen"
+        ),
+    )
+    parser.add_argument(
+        "--edc-connector-config",
+        type=str,
+        default=None,
+        help=(
+            "JSON-Datei mit Station-Code -> EDC-Management-API-URL (oder "
+            '{"management_url": ..., "api_key": ...}), ueberschreibt '
+            "Station.edc_management_url je Location"
+        ),
+    )
     args = parser.parse_args()
 
     start_time = datetime.fromisoformat(args.start) if args.start else datetime.now()
@@ -142,14 +176,32 @@ def main() -> None:
         export_events_as_aas(events, aas_output_dir)
         print(f"AAS-Shell-/Submodel-JSON geschrieben nach: {aas_output_dir.resolve()}")
 
-    if args.upload_aas:
-        registry = (
+    needs_aas_registry = args.upload_aas or args.offer_edc_assets or args.edc_output_dir
+    aas_registry = None
+    if needs_aas_registry:
+        aas_registry = (
             AasServerRegistry.from_json_file(args.aas_server_config)
             if args.aas_server_config
             else AasServerRegistry()
         )
-        upload_events_as_aas(events, registry)
+
+    if args.upload_aas:
+        upload_events_as_aas(events, aas_registry)
         print(f"{len(events)} Events als AAS auf die konfigurierten Server hochgeladen.")
+
+    if args.edc_output_dir:
+        edc_output_dir = Path(args.edc_output_dir)
+        export_events_as_dataspace_assets(events, aas_registry, edc_output_dir)
+        print(f"Dataspace-Asset-/Policy-/Contract-Definition-JSON geschrieben nach: {edc_output_dir.resolve()}")
+
+    if args.offer_edc_assets:
+        edc_registry = (
+            EdcConnectorRegistry.from_json_file(args.edc_connector_config)
+            if args.edc_connector_config
+            else EdcConnectorRegistry()
+        )
+        offer_events_as_dataspace_assets(events, edc_registry, aas_registry)
+        print(f"Dataspace-Assets fuer {len(events)} Events an den konfigurierten EDC-Connectoren angelegt.")
 
 
 if __name__ == "__main__":

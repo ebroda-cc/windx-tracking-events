@@ -32,6 +32,12 @@ class Station:
     # werden, siehe windx_tracking/aas/server.py). Jede Station kann ihren
     # eigenen, unabhaengigen AAS-Server haben.
     aas_server_url: str = ""
+    # Management-API-Basis-URL des EDC-Connectors (Eclipse Dataspace
+    # Components), der fuer diese Location zustaendig ist (Default; kann
+    # pro Lauf ueber EdcConnectorRegistry ueberschrieben werden, siehe
+    # windx_tracking/edc/server.py). Jede Location bietet ihre lokalen
+    # AAS ueber ihren eigenen EDC-Connector im Datenraum an.
+    edc_management_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,7 @@ FACTORY = Station(
     gln="4012345.00001",
     un_locode="DEXFA",
     aas_server_url="http://localhost:8081",
+    edc_management_url="http://localhost:9191/management",
 )
 CHECKPOINT = Station(
     code="STA-CHECKPOINT",
@@ -83,6 +90,7 @@ CHECKPOINT = Station(
     gln="4012345.00002",
     un_locode="DEXCK",
     aas_server_url="http://localhost:8082",
+    edc_management_url="http://localhost:9192/management",
 )
 HUB = Station(
     code="STA-HUB",
@@ -91,6 +99,7 @@ HUB = Station(
     gln="4012345.00003",
     un_locode="DEXHB",
     aas_server_url="http://localhost:8083",
+    edc_management_url="http://localhost:9193/management",
 )
 PORT_GATE = Station(
     code="STA-PORT-GATE",
@@ -99,6 +108,7 @@ PORT_GATE = Station(
     gln="4012345.00004",
     un_locode="DECUX",
     aas_server_url="http://localhost:8084",
+    edc_management_url="http://localhost:9194/management",
 )
 PORT_YARD = Station(
     code="STA-PORT-YARD",
@@ -107,11 +117,12 @@ PORT_YARD = Station(
     gln="4012345.00005",
     un_locode="DECUX",
     # Gleicher Standort (Hafen Cuxhaven) wie PORT_GATE, hier bewusst mit
-    # eigenem AAS-Server modelliert, um zu zeigen, dass auch Teilbereiche
-    # eines Standorts unabhaengige Server betreiben koennen. In der
-    # Praxis kann hier auch dieselbe URL wie bei PORT_GATE eingetragen
-    # werden.
+    # eigenem AAS-Server/EDC-Connector modelliert, um zu zeigen, dass auch
+    # Teilbereiche eines Standorts unabhaengige Server/Connectoren
+    # betreiben koennen. In der Praxis koennen hier auch dieselben URLs
+    # wie bei PORT_GATE eingetragen werden.
     aas_server_url="http://localhost:8085",
+    edc_management_url="http://localhost:9195/management",
 )
 
 DEFAULT_ROUTE = Route(

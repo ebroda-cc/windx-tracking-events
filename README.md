@@ -6,8 +6,10 @@ mehrere Transporte gleichzeitig/zeitversetzt gestartet werden; jede Station
 auf dem Weg erzeugt zu ihrer Zeit ein Tracking-Event, das als
 **EDI-Nachricht (EDIFACT IFTSTA)**, als **GS1-EPCIS-2.0-Event** (JSON-LD)
 und als **Asset Administration Shell (AAS, Metamodell V3 / API V3.1)**
-dargestellt und optional auf einen — je Location konfigurierbaren —
-AAS-Server hochgeladen wird.
+dargestellt wird. Die AAS kann auf einen — je Location konfigurierbaren —
+AAS-Server hochgeladen und dort anschließend über einen ebenfalls je
+Location konfigurierbaren **EDC-Connector** (Eclipse Dataspace Components)
+als Dataspace-Asset angeboten werden.
 
 ## Konzept
 
@@ -98,6 +100,36 @@ Schema, das eine AAS-API V3.1 erwartet.
 Jede Station kann so grundsätzlich einen eigenen, unabhängigen
 AAS-Server betreiben (siehe `Station.aas_server_url` in `route.py`).
 
+### DataSpace-Integration (`windx_tracking/edc/`)
+
+Jede Location kann zusätzlich einen eigenen **EDC-Connector** (Eclipse
+Dataspace Components) betreiben, über den sie ihre dort liegende
+Sendungs-AAS als Dataspace-Asset im Datenraum anbietet. Pro Sendung
+entsteht so an jeder Location, an der die Sendung ein Event ausgelöst
+hat, ein eigenes Angebot:
+
+- **`builder.py`** — baut die JSON-LD-Bodies für die **EDC Management
+  API** (Kontext `https://w3id.org/edc/v0.0.1/ns/`): ein **Asset**, dessen
+  `dataAddress` (Typ `HttpData`, mit `proxyPath`) auf die Shell-Ressource
+  der Sendung am lokalen AAS-Server zeigt; eine sehr einfache, permissive
+  **Policy Definition** (Demo-Policy ohne Einschränkungen — in einem
+  echten Datenraum stünde hier eine tatsächliche ODRL-Policy mit
+  Teilnehmerkreis/Zweckbindung); eine **Contract Definition**, die Asset
+  und Policy zu einem abschließbaren Angebot verbindet.
+- **`server.py`** — `EdcConnectorRegistry` ordnet jeder Station analog zu
+  `AasServerRegistry` ihren eigenen EDC-Connector zu (Default in
+  `route.py`, per JSON-Datei überschreibbar, inkl. optionalem API-Key);
+  `EdcManagementClient` spricht die Standard-Endpunkte `/v3/assets`,
+  `/v3/policydefinitions` und `/v3/contractdefinitions` an.
+- **`pipeline.py`** — legt pro Sendung an jeder durchlaufenen Location
+  genau ein Angebot an (Asset + Policy + Contract Definition), bzw.
+  schreibt dieselben Objekte lokal als JSON (Dry-Run ohne Connector).
+
+Wie schon bei EDI/EPCIS/AAS ist die JSON-LD-Struktur bewusst
+vereinfacht/illustrativ und orientiert sich an der EDC Management API V3
+— exakte Felder/Pfade können je nach eingesetzter Connector-Version
+abweichen.
+
 ## Verwendung
 
 ```bash
@@ -114,6 +146,15 @@ python -m windx_tracking --transports 2 --aas-output-dir out/aas
 # ... oder direkt auf die je Location konfigurierten AAS-Server hochladen
 python -m windx_tracking --transports 2 --upload-aas \
     --aas-server-config aas-servers.json
+
+# ... und die dort liegenden Sendungs-AAS zusaetzlich als Dataspace-Assets
+# ueber die je Location zustaendigen EDC-Connectoren anbieten
+python -m windx_tracking --transports 2 --upload-aas --offer-edc-assets \
+    --aas-server-config aas-servers.json --edc-connector-config edc-connectors.json
+
+# Dataspace-Asset-/Policy-/Contract-Definition-JSON stattdessen nur lokal
+# ablegen, ohne einen EDC-Connector anzusprechen
+python -m windx_tracking --transports 2 --edc-output-dir out/edc
 ```
 
 Für jedes Event werden dabei `<Sendung>_<Nr>_<Typ>.edi` und
@@ -131,16 +172,18 @@ Station-Code, z. B.:
 }
 ```
 
-## Ausblick: DataSpace-Integration (EDC)
+`edc-connectors.json` überschreibt analog die Default-Connector-URLs aus
+`route.py`, optional inklusive API-Key:
 
-Als nächster Schritt sollen die je Location gehosteten AAS-Server als
-**Dataspace Assets** über jeweils zugehörige EDC-Connectoren (Eclipse
-Dataspace Components) angeboten werden — d. h. pro Location ein EDC, das
-den dortigen AAS-Server (Shells + Submodels) als `Asset` mit
-entsprechender `dataAddress` registriert und über Policies/Contract-
-Definitions für andere Teilnehmer im Datenraum auffindbar/abrufbar macht.
-Die hier bereits pro Station getrennten AAS-Server bilden dafür die
-Grundlage; die EDC-Anbindung selbst ist noch nicht implementiert.
+```json
+{
+  "STA-FACTORY": "https://factory.example.com/management",
+  "STA-PORT-GATE": {
+    "management_url": "https://port-cuxhaven.example.com/management",
+    "api_key": "..."
+  }
+}
+```
 
 ## Tests
 
